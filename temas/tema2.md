@@ -238,3 +238,143 @@ Razones para usar Nginx
 
     Nginx, como por ejemplo: Wordpress, Joomla, Drupal, phpBB ¡y más!
 
+
+
+# Configuración Completa de una Aplicación Flask con Nginx y Gunicorn
+
+## 1. Crear el Entorno de la Aplicación
+
+### 1.1. Instalar Dependencias
+
+Primero, asegúrate de tener `python3`, `pip`, y `venv` instalados. Si no lo tienes, puedes instalarlos:
+
+```bash
+sudo apt update
+sudo apt install python3 python3-pip python3-venv nginx
+
+mkdir /var/www/pokemon_app
+cd /var/www/pokemon_app
+
+
+python3 -m venv venv
+source venv/bin/activate
+
+
+pip install Flask gunicorn
+```
+
+
+```Python
+from flask import Flask, jsonify, render_template
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/hello_world')
+def hello_world():
+    return jsonify(message="Hello, World!")
+
+if __name__ == '__main__':
+    app.run(debug=True)
+```
+
+```bash
+mkdir templates
+```
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Index Page</title>
+</head>
+<body>
+    <h1>Welcome to the Pokemon App</h1>
+
+    <button id="helloWorldButton">Go to Hello World</button>
+    
+    <p id="response"></p>
+
+    <script>
+        document.getElementById("helloWorldButton").addEventListener("click", function() {
+            fetch('/hello_world')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("response").innerText = data.message;
+                })
+                .catch(error => console.log('Error:', error));
+        });
+    </script>
+</body>
+</html>
+```
+
+
+```bash
+mkdir static
+```
+
+
+```css
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 50px;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+#response {
+    margin-top: 20px;
+    font-size: 18px;
+    color: #333;
+}
+```
+
+```bash
+/var/www/pokemon_app/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 app:app
+
+sudo nano /etc/nginx/sites-available/pokemon_app
+```
+
+
+```tpl
+server {
+    listen 80;
+    server_name tu_ip;  # Cambia esto a tu IP o dominio
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;  # Asegúrate de que este puerto sea el mismo en el que está corriendo Gunicorn
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+
+```bash
+
+sudo ln -s /etc/nginx/sites-available/flask_hello /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+
+```
